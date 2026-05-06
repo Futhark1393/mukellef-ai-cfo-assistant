@@ -56,3 +56,22 @@
     *   [ ] Add JWT-based authentication for multi-tenant users.
     *   [ ] Wire auth endpoints to Postgres (register/login/refresh).
     *   [ ] Document required auth/database environment variables.
+
+## Phase 7: Business Operations Expansion (Draft)
+*   **Alara (Financial Data focus):**
+    *   [ ] Bank transactions ingestion and daily financial tracking outputs.
+    *   [ ] 6-month cashflow forecast improvements with scenario inputs.
+    *   [ ] Cost and profitability analysis (gross profit vs profitability metrics).
+*   **SMBayraktar (OCR and Documents focus):**
+    *   [ ] OCR for purchase invoices with item grouping (goods vs stock groups).
+    *   [ ] Mobile OCR intake flow for receipts/invoices (mock pipeline).
+*   **Futhark (System Architecture focus):**
+    *   [ ] Current account (cari) tracking with auto receipt generation on payment.
+    *   [ ] Supplier payment tracking (tediyeler) and payment planning.
+    *   [ ] Stock and inventory management with in/out stock tracking.
+    *   [ ] Inventory valuation (FIFO/LIFO) calculation utilities.
+    *   [ ] Check and promissory note management (given/received/clearing).
+    *   [ ] Tax and payroll month-end process tracking (KDV, Muhtasar, payroll).
+    *   [ ] Employee attendance and time tracking calculations.
+    *   [ ] Vehicle insurance/expense tracking with periodization.
+    *   [ ] Prepaid expense separation across periods.

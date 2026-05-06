@@ -20,8 +20,20 @@
 # - Example: "# AI Traceability: Optimized regex extraction logic to prevent VAT miscalculation."
 
 # Focus Areas
-# Strictly focus on these 3 features:
-# 1. OCR -> Automatic accounting entry
+# Primary scope for current roadmap:
+# 1. OCR -> Automatic accounting entry and invoice processing
 # 2. Cashflow prediction (3-6 months)
-# 3. Expense period allocation (Dönemsellik İlkesi)
-# Do NOT suggest or build features outside of this scope.
+# 3. Expense period allocation (Donemsellik Ilkesi)
+# 4. Current account (cari) transactions and receipt automation
+# 5. Supplier payment tracking (tediyeler)
+# 6. Stock and inventory management (including in/out tracking)
+# 7. Mobile OCR intake
+# 8. Bank transactions and financial tracking
+# 9. Check and promissory note management
+# 10. Cost and profitability analysis
+# 11. Tax and payroll month-end processes
+# 12. Employee attendance and time tracking
+# 13. Inventory valuation (FIFO/LIFO)
+# 14. Vehicle insurance/expense tracking
+# 15. Prepaid expense separation across periods
+# Avoid integrating external OCR APIs without explicit approval.
