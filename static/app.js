@@ -115,11 +115,13 @@ async function loadDashboard() {
             ${statCard('👨‍💼', empActive + ' kişi', 'Bugün Aktif Personel')}
         </div>
         
-        <div class="grid-2">
+        <div class="grid-2" style="align-items: start;">
             <div class="glass-card">
-                <div class="section-title">Son İşlenen Faturalar</div>
+                <div class="flex-between mb-4">
+                    <div class="section-title" style="margin-bottom:0">Son İşlenen Faturalar</div>
+                    <button class="btn btn-brand" style="padding:6px 12px; font-size:11px" onclick="navigate('invoices')">Tümünü Gör</button>
+                </div>
                 ${recentInvoicesHTML}
-                <button class="btn btn-brand mt-4" style="width:100%" onclick="navigate('invoices')">Tüm Faturaları Gör</button>
             </div>
             
             <div class="glass-card">
@@ -134,8 +136,7 @@ async function loadDashboard() {
                             ${badge(s.current_quantity+' '+s.unit,'red')}
                         </div>
                     </div>`
-                ).join('') || '<p class="text-green text-sm mt-2">Düşük seviyede kritik stok bulunmuyor.</p>' : ''}
-                <button class="btn btn-brand mt-4" style="width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); box-shadow:none" onclick="navigate('stock')">Stok Paneline Git</button>
+                ).join('') || '<div class="text-green text-sm" style="padding: 20px; text-align: center; background: rgba(16,185,129,0.05); border-radius: 8px;">Düşük seviyede kritik stok bulunmuyor.</div>' : ''}
             </div>
         </div>`;
 }

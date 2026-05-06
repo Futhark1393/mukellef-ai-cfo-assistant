@@ -20,7 +20,7 @@ def process_invoice_live(image_bytes: bytes, mime_type: str = "image/jpeg") -> d
 
     client = genai.Client(api_key=api_key)
 
-    # We use gemini-2.5-flash for fast and accurate multimodal tasks
+    # We use gemini-2.5-flash as the primary model and add retry logic for rate limits/high demand
     model = "gemini-2.5-flash"
 
     prompt = """
@@ -57,18 +57,38 @@ def process_invoice_live(image_bytes: bytes, mime_type: str = "image/jpeg") -> d
     If you cannot find a specific field, do your best to infer or leave it out safely, but never break the JSON structure.
     """
 
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                prompt,
-            ],
-            config=types.GenerateContentConfig(
-                temperature=0.1,
+    import time
+    max_retries = 3
+    response = None
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                    prompt,
+                ],
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                )
             )
-        )
-        
+            break # Success, break the retry loop
+        except Exception as e:
+            last_error = str(e)
+            if "503" in last_error or "429" in last_error or "Quota" in last_error:
+                # If rate limited or high demand, wait and try again
+                time.sleep(3)
+                continue
+            else:
+                # If it's another error (like 404), fail immediately
+                return {"success": False, "error": last_error}
+
+    if not response:
+        return {"success": False, "error": f"Failed after {max_retries} attempts. Last error: {last_error}"}
+
+    try:
         # Clean potential markdown wrapping if Gemini ignores instructions
         text = response.text.strip()
         if text.startswith("```json"):
