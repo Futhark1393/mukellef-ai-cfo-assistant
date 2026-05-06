@@ -263,8 +263,12 @@ def create_cari_payment(payload: CariPaymentRequest):
 def upload_invoice(file: UploadFile = File(...)):
     """Upload an invoice file and retrieve its parsed data (mock)."""
     invoice_id = (file.filename or "").split(".")[0]
-    if not invoice_id:
+    
+    # Check if the uploaded filename matches our mock DB, otherwise fallback
+    from core.ocr_engine import MOCK_INVOICE_DB
+    if invoice_id not in MOCK_INVOICE_DB:
         invoice_id = "INV-2026-001"
+        
     result = process_invoice(invoice_id)
     if result.get("success"):
         data = result["data"]
