@@ -278,7 +278,7 @@ def upload_invoice(file: UploadFile = File(...)):
         
         # Add the live parsed invoice to the mock database so it shows up in the dashboard
         if result.get("success"):
-            from core.ocr_engine import MOCK_INVOICE_DB
+            from core.ocr_engine import MOCK_INVOICE_DB, save_mock_db
             data = result["data"]
             inv_id = data.get("invoice_id")
             if not inv_id or inv_id == "INV-999" or inv_id.strip() == "":
@@ -287,6 +287,7 @@ def upload_invoice(file: UploadFile = File(...)):
                 inv_id = f"INV-LIVE-{int(time.time())}"
             data["invoice_id"] = inv_id
             MOCK_INVOICE_DB[inv_id] = data
+            save_mock_db() # Persist to JSON file so it survives hot-reloads
             
     else:
         # Fallback to mock if empty file

@@ -11,7 +11,7 @@
 <body>
 <!-- Sidebar -->
 <aside class="sidebar">
-    <div class="sidebar-brand">
+    <div class="sidebar-brand" style="cursor: pointer;" onclick="navigate('dashboard')">
         <div class="logo">M</div>
         <div><h1>Mükellef</h1><p>AI CFO Assistant</p></div>
     </div>
@@ -144,6 +144,17 @@
         </div>
     </div>
 </div>
+<!-- Modal -->
+<div id="modal-container" class="modal-overlay hidden" onclick="closeModal(event)">
+    <div class="modal-content glass-card" onclick="event.stopPropagation()">
+        <div class="flex-between mb-4">
+            <h3 id="modal-title">Detaylar</h3>
+            <button class="btn" style="background:rgba(255,255,255,0.05); padding:4px 8px" onclick="closeModal()">✕</button>
+        </div>
+        <div id="modal-body"></div>
+    </div>
+</div>
+
 <script src="/static/app.js"></script>
 </body>
 </html>

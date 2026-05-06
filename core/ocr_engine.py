@@ -6,6 +6,8 @@
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import re
+import json
+import os
 from typing import Optional
 
 from core.stock_grouping import group_line_items
@@ -17,7 +19,7 @@ from core.stock_grouping import group_line_items
 # AI Traceability: Skills Agent constructed realistic Turkish B2B invoice
 # records covering common expense categories (office supplies, SaaS, logistics,
 # IT equipment) with per-line-item detail to simulate multi-page PDF extraction.
-MOCK_INVOICE_DB: dict[str, dict] = {
+_DEFAULT_MOCK_INVOICE_DB: dict[str, dict] = {
     "INV-2026-001": {
         "invoice_id": "INV-2026-001",
         "vendor_name": "Migros Ticaret A.S.",
@@ -98,14 +100,14 @@ MOCK_INVOICE_DB: dict[str, dict] = {
                 "description": "RDS PostgreSQL (db.r5.large)",
                 "quantity": 720,
                 "unit": "hours",
-                "unit_price": 7.50,
+                "unit_price": 9.75,
                 "vat_rate": 20,
-                "vat_amount": 1080.00,
-                "line_total": 6480.00,
+                "vat_amount": 1404.00,
+                "line_total": 8424.00,
             },
         ],
-        "subtotal": 15700.00,
-        "total_vat": 2840.00,
+        "subtotal": 15450.00,
+        "total_vat": 3090.00,
         "total_amount": 18540.00,
     },
     "INV-2026-003": {
@@ -114,70 +116,38 @@ MOCK_INVOICE_DB: dict[str, dict] = {
         "date": "2026-05-01",
         "currency": "TRY",
         "category": "Logistics",
-        "description": "Domestic parcel shipments - batch #47",
+        "description": "Domestic shipping and delivery services",
         "status": "pending",
         "page_count": 1,
         "line_items": [
             {
                 "line_no": 1,
-                "description": "Standard Parcel (0-5 kg) - Istanbul",
-                "quantity": 25,
+                "description": "Standard Parcel Delivery",
+                "quantity": 50,
                 "unit": "pcs",
-                "unit_price": 32.00,
+                "unit_price": 25.00,
                 "vat_rate": 20,
-                "vat_amount": 160.00,
-                "line_total": 960.00,
-            },
-            {
-                "line_no": 2,
-                "description": "Express Parcel (0-3 kg) - Ankara",
-                "quantity": 5,
-                "unit": "pcs",
-                "unit_price": 42.00,
-                "vat_rate": 20,
-                "vat_amount": 30.98,
-                "line_total": 240.98,
-            },
+                "vat_amount": 250.00,
+                "line_total": 1500.00,
+            }
         ],
-        "subtotal": 1059.02,
-        "total_vat": 190.98,
+        "subtotal": 1000.00,
+        "total_vat": 250.00,
         "total_amount": 1250.00,
     },
-    # AI Traceability: Skills Agent added this multi-page invoice to demonstrate
-    # line-item extraction across a 2-page PDF document with 5 line items.
     "INV-2026-004": {
         "invoice_id": "INV-2026-004",
         "vendor_name": "Teknosa Ic ve Dis Tic. A.S.",
         "date": "2026-05-02",
         "currency": "TRY",
         "category": "IT Equipment",
-        "description": "Office IT hardware refresh - Q2 2026",
+        "description": "New developer laptops and monitors",
         "status": "processed",
         "page_count": 2,
         "line_items": [
             {
                 "line_no": 1,
-                "description": "Dell Latitude 5550 Laptop",
-                "quantity": 5,
-                "unit": "pcs",
-                "unit_price": 42000.00,
-                "vat_rate": 20,
-                "vat_amount": 42000.00,
-                "line_total": 252000.00,
-            },
-            {
-                "line_no": 2,
-                "description": "Logitech MX Master 3S Mouse",
-                "quantity": 10,
-                "unit": "pcs",
-                "unit_price": 2800.00,
-                "vat_rate": 20,
-                "vat_amount": 5600.00,
-                "line_total": 33600.00,
-            },
-            {
-                "line_no": 3,
-                "description": "Samsung 27\" 4K Monitor (S70A)",
+                "description": "MacBook Pro 16-inch M3 Max",
                 "quantity": 5,
                 "unit": "pcs",
                 "unit_price": 14500.00,
@@ -211,6 +181,23 @@ MOCK_INVOICE_DB: dict[str, dict] = {
         "total_amount": 406680.00,
     },
 }
+
+DB_FILE_PATH = "mock_invoices_db.json"
+
+def _load_mock_db() -> dict:
+    if os.path.exists(DB_FILE_PATH):
+        try:
+            with open(DB_FILE_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return _DEFAULT_MOCK_INVOICE_DB.copy()
+
+MOCK_INVOICE_DB = _load_mock_db()
+
+def save_mock_db():
+    with open(DB_FILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(MOCK_INVOICE_DB, f, indent=2, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------

@@ -20,3 +20,5 @@ htmlcov/
 .DS_Store
 .vscode/
 .idea/
+# Local data
+mock_invoices_db.json

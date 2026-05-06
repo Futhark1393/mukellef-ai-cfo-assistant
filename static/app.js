@@ -45,9 +45,12 @@ function toast(msg, type='success') {
     setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.4s';setTimeout(()=>t.remove(),400);},3000);
 }
 
-function tableHTML(headers, rows) {
+function tableHTML(headers, rows, rowCallback=null) {
     let h = '<table class="data-table"><thead><tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
-    h += rows.map(r => '<tr>' + r.map(c=>`<td>${c}</td>`).join('') + '</tr>').join('');
+    h += rows.map((r, i) => {
+        const attrs = rowCallback ? rowCallback(r, i) : '';
+        return `<tr ${attrs}>` + r.map(c=>`<td>${c}</td>`).join('') + '</tr>';
+    }).join('');
     return h + '</tbody></table>';
 }
 
@@ -115,11 +118,13 @@ async function loadDashboard() {
             ${statCard('👨‍💼', empActive + ' kişi', 'Bugün Aktif Personel')}
         </div>
         
-        <div class="grid-2">
+        <div class="grid-2" style="align-items: start;">
             <div class="glass-card">
-                <div class="section-title">Son İşlenen Faturalar</div>
+                <div class="flex-between mb-4">
+                    <div class="section-title" style="margin-bottom:0">Son İşlenen Faturalar</div>
+                    <button class="btn btn-brand" style="padding:6px 12px; font-size:11px" onclick="navigate('invoices')">Tümünü Gör</button>
+                </div>
                 ${recentInvoicesHTML}
-                <button class="btn btn-brand mt-4" style="width:100%" onclick="navigate('invoices')">Tüm Faturaları Gör</button>
             </div>
             
             <div class="glass-card">
@@ -134,8 +139,7 @@ async function loadDashboard() {
                             ${badge(s.current_quantity+' '+s.unit,'red')}
                         </div>
                     </div>`
-                ).join('') || '<p class="text-green text-sm mt-2">Düşük seviyede kritik stok bulunmuyor.</p>' : ''}
-                <button class="btn btn-brand mt-4" style="width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); box-shadow:none" onclick="navigate('stock')">Stok Paneline Git</button>
+                ).join('') || '<div class="text-green text-sm" style="padding: 20px; text-align: center; background: rgba(16,185,129,0.05); border-radius: 8px;">Düşük seviyede kritik stok bulunmuyor.</div>' : ''}
             </div>
         </div>`;
 }
@@ -151,23 +155,107 @@ async function loadCari() {
 }
 
 // --- Invoices ---
+let allInvoices = [];
+
 async function loadInvoices() {
     const el = document.getElementById('inv-content');
     el.innerHTML = '<p class="text-muted">Yükleniyor...</p>';
     const res = await api('/api/invoices');
     if(!res.data) { el.innerHTML = '<p class="text-red">Veri yüklenemedi</p>'; return; }
+    
+    allInvoices = res.data;
+    renderInvoiceList(allInvoices);
+}
+
+function renderInvoiceList(data) {
+    const el = document.getElementById('inv-content');
+    const categories = [...new Set(allInvoices.map(i => i.category))];
+    
     el.innerHTML = `
-        <div class="mb-6">
+        <div class="grid-2 mb-6" style="align-items: start;">
             <div class="glass-card">
                 <div class="section-title">Fatura Yükle (OCR)</div>
                 <input type="file" id="ocr-file" accept="image/*,.pdf" class="form-input mb-4">
                 <button class="btn btn-brand" onclick="uploadOCR()">Fatura Tara</button>
                 <div id="ocr-result" class="mt-4"></div>
             </div>
-        </div>` +
-        tableHTML(['Fatura No','Tedarikçi','Tarih','Tutar','Kategori','Durum'],
-        res.data.map(i => [i.invoice_id, i.vendor_name, i.date, `<strong>${fmt(i.total_amount)}</strong>`, i.category,
-            i.status==='processed' ? badge('İşlendi','green') : badge('Bekliyor','amber')]));
+            <div class="glass-card">
+                <div class="section-title">Filtreleme</div>
+                <div class="form-group">
+                    <label class="form-label">Kategoriye Göre Filtrele</label>
+                    <select class="form-input" onchange="filterInvoices(this.value)">
+                        <option value="all">Tüm Kategoriler</option>
+                        ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="glass-card">
+            <div class="section-title">Fatura Listesi</div>
+            <div class="text-muted text-sm mb-4">Fatura detaylarını görmek için satıra tıklayın.</div>
+            ${tableHTML(['Fatura No','Tedarikçi','Tarih','Tutar','Kategori','Durum'],
+                data.map(i => [
+                    `<span style="cursor:pointer; color:var(--brand-400)" onclick="showInvoiceDetail('${i.invoice_id}')">${i.invoice_id}</span>`,
+                    i.vendor_name,
+                    i.date,
+                    `<strong>${fmt(i.total_amount)}</strong>`,
+                    i.category,
+                    i.status==='processed' ? badge('İşlendi','green') : badge('Bekliyor','amber')
+                ]),
+                (row, i) => `onclick="showInvoiceDetail('${data[i].invoice_id}')" style="cursor:pointer"`
+            )}
+        </div>`;
+}
+
+function filterInvoices(cat) {
+    const filtered = cat === 'all' ? allInvoices : allInvoices.filter(i => i.category === cat);
+    renderInvoiceList(filtered);
+}
+
+async function showInvoiceDetail(id) {
+    const body = document.getElementById('modal-body');
+    const title = document.getElementById('modal-title');
+    title.innerText = `Fatura Detayı: ${id}`;
+    body.innerHTML = '<p class="text-muted">Yükleniyor...</p>';
+    document.getElementById('modal-container').classList.remove('hidden');
+    
+    const res = await api(`/api/invoice/${id}`);
+    if(!res.success || !res.data) { body.innerHTML = '<p class="text-red">Hata: Detaylar alınamadı.</p>'; return; }
+    
+    const inv = res.data;
+    body.innerHTML = `
+        <div class="grid-2 mb-6">
+            <div>
+                <div class="text-muted text-sm">Tedarikçi</div>
+                <div class="font-bold">${inv.vendor_name}</div>
+                <div class="text-muted text-sm mt-2">Tarih</div>
+                <div class="font-bold">${inv.date}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-muted text-sm">Toplam Tutar</div>
+                <div class="font-bold text-brand" style="font-size:20px">${fmt(inv.total_amount)}</div>
+                <div class="text-muted text-sm mt-2">Durum</div>
+                <div>${inv.status==='processed' ? badge('İşlendi','green') : badge('Bekliyor','amber')}</div>
+            </div>
+        </div>
+        <div class="section-title">Kalem Detayları</div>
+        ${tableHTML(['No','Açıklama','Miktar','Birim','B.Fiyat','KDV','Toplam'],
+            inv.line_items.map(l => [
+                l.line_no,
+                l.description,
+                l.quantity,
+                l.unit,
+                fmt(l.unit_price),
+                `%${l.vat_rate}`,
+                fmt(l.line_total)
+            ]))}
+    `;
+}
+
+function closeModal(e) {
+    if(!e || e.target.id === 'modal-container' || e.type === 'click') {
+        document.getElementById('modal-container').classList.add('hidden');
+    }
 }
 
 async function uploadOCR() {
