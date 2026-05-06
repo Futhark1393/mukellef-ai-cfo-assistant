@@ -22,3 +22,5 @@ uvicorn==0.46.0
 # PyMuPDF==1.25.0        # PDF page rendering (fitz)
 # Pillow==11.2.0         # Image preprocessing
 # google-genai==1.14.0   # Gemini Vision API client
+
+python-multipart==0.0.20
