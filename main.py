@@ -17,6 +17,12 @@ from core.ocr_engine import (
     process_invoice,
     process_invoice_pages,
 )
+from core.supplier_payments import (
+    get_supplier,
+    list_suppliers,
+    record_supplier_payment,
+    schedule_supplier_payment,
+)
 from core import auth, crud, schemas
 from core.db import get_db
 
@@ -39,6 +45,21 @@ class CariPaymentRequest(BaseModel):
     payment_date: str
     method: str = "bank_transfer"
     reference: str | None = None
+
+
+class SupplierPaymentRequest(BaseModel):
+    supplier_id: str
+    amount: float
+    payment_date: str
+    method: str = "bank_transfer"
+    reference: str | None = None
+
+
+class SupplierPaymentPlanRequest(BaseModel):
+    supplier_id: str
+    amount: float
+    due_date: str
+    note: str | None = None
 
 app = FastAPI(title="Mukellef - AI CFO Assistant")
 
@@ -223,4 +244,50 @@ def get_invoice_stock_groups(invoice_id: str):
     result = get_stock_groups(invoice_id)
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Supplier Payment Endpoints (Tediyeler)
+# ---------------------------------------------------------------------------
+# AI Traceability: Skills Agent added supplier payment endpoints to track
+# daily payments and schedules in a deterministic mock flow.
+
+@app.get("/api/suppliers")
+def list_supplier_accounts():
+    return list_suppliers()
+
+
+@app.get("/api/suppliers/{supplier_id}")
+def get_supplier_account(supplier_id: str):
+    result = get_supplier(supplier_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+
+
+@app.post("/api/suppliers/payments")
+def create_supplier_payment(payload: SupplierPaymentRequest):
+    result = record_supplier_payment(
+        payload.supplier_id,
+        payload.amount,
+        payload.payment_date,
+        payload.method,
+        payload.reference,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error"))
+    return result
+
+
+@app.post("/api/suppliers/payment-plans")
+def create_supplier_payment_plan(payload: SupplierPaymentPlanRequest):
+    result = schedule_supplier_payment(
+        payload.supplier_id,
+        payload.amount,
+        payload.due_date,
+        payload.note,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error"))
     return result
