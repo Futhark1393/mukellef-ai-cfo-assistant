@@ -166,7 +166,7 @@
     <script>
         // AI Traceability: Skills Agent wrote all frontend interaction logic for the MVP dashboard.
 
-        const API_BASE = "http://127.0.0.1:8000";
+        const API_BASE = "";
         const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
         // --- OCR Invoice Upload ---
@@ -189,6 +189,10 @@
                 formData.append("file", fileInput.files[0]);
                 const res = await fetch(`${API_BASE}/api/ocr/upload`, { method: "POST", body: formData });
                 const data = await res.json();
+                if (data.error) {
+                    showToast(data.error, "error");
+                    return;
+                }
                 renderOcrResult(content, data);
             } catch {
                 // Fallback to mock data when backend is not available
@@ -260,7 +264,7 @@
 
         // --- Expense Allocation ---
         // AI Traceability: Skills Agent implemented period-based expense allocation (Donemsellik Ilkesi).
-        function allocateExpense() {
+        async function allocateExpense() {
             const total = parseFloat(document.getElementById("ea-total").value);
             const periods = parseInt(document.getElementById("ea-periods").value);
             const startMonth = parseInt(document.getElementById("ea-start").value);
@@ -270,8 +274,22 @@
                 return;
             }
 
-            const perPeriod = Math.round((total / periods) * 100) / 100;
-            const remainder = Math.round((total - perPeriod * periods) * 100) / 100;
+            let perPeriod;
+            let remainder;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/expense/allocate`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ amount: total, months: periods })
+                });
+                const data = await res.json();
+                perPeriod = Math.round(Number(data.monthly_amount) * 100) / 100;
+                remainder = Math.round((total - perPeriod * periods) * 100) / 100;
+            } catch {
+                perPeriod = Math.round((total / periods) * 100) / 100;
+                remainder = Math.round((total - perPeriod * periods) * 100) / 100;
+            }
 
             const resultDiv = document.getElementById("expense-result");
             const content = document.getElementById("expense-result-content");

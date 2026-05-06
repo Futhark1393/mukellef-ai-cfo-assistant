@@ -43,3 +43,14 @@
 *   [ ] **Futhark1393:** Freeze code repository.
 *   [ ] **Team:** Prepare live demonstration scenario (loading a test invoice and showing automated outcomes).
 *   [ ] **Team:** Finalize pitch highlighting "Autonomous Accounting" and "Agentic Workflow" efficiency.
+
+## Phase 6: Post-MVP (Phase 2) Roadmap
+*   **Mert (Computer Vision focus):**
+    *   [ ] Upgrade OCR pipeline to support multi-page PDF invoices.
+    *   [ ] Implement line item extraction for tax breakdown and detailed categorization.
+*   **Alara (Financial Data focus):**
+    *   [ ] Add burn rate calculator based on historical cashflow data.
+    *   [ ] Add runway projection with configurable scenarios.
+*   **Futhark (System Architecture focus):**
+    *   [ ] Implement PostgreSQL persistence layer with migrations.
+    *   [ ] Add JWT-based authentication for multi-tenant users.
