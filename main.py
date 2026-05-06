@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 import jwt
 
 from core.cashflow import predict_cashflow
+from core.cari import get_cari_account, list_cari_accounts, record_payment
 from core.expense_manager import allocate_prepaid_expense
 from core.ocr_engine import (
     get_line_items,
@@ -29,6 +30,14 @@ class CashflowRequest(BaseModel):
 class ExpenseRequest(BaseModel):
     amount: float
     months: int
+
+
+class CariPaymentRequest(BaseModel):
+    account_id: str
+    amount: float
+    payment_date: str
+    method: str = "bank_transfer"
+    reference: str | None = None
 
 app = FastAPI(title="Mukellef - AI CFO Assistant")
 
@@ -110,6 +119,39 @@ def run_cashflow_post(payload: CashflowRequest):
         payload.months,
     )
     return {"success": True, "projections": projections}
+
+
+# ---------------------------------------------------------------------------
+# Cari Endpoints
+# ---------------------------------------------------------------------------
+# AI Traceability: Skills Agent added cari account endpoints for mock current
+# account tracking and receipt creation.
+
+@app.get("/api/cari/accounts")
+def list_cari():
+    return list_cari_accounts()
+
+
+@app.get("/api/cari/accounts/{account_id}")
+def get_cari(account_id: str):
+    result = get_cari_account(account_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+
+
+@app.post("/api/cari/payments")
+def create_cari_payment(payload: CariPaymentRequest):
+    result = record_payment(
+        payload.account_id,
+        payload.amount,
+        payload.payment_date,
+        payload.method,
+        payload.reference,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error"))
+    return result
 
 
 # ---------------------------------------------------------------------------
