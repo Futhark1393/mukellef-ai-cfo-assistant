@@ -3,6 +3,9 @@
 # as well as a theoretical Vision API integration path for production use.
 # Extended by Skills Agent to support multi-page PDF invoices with line-item extraction.
 
+from datetime import datetime
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import re
 from typing import Optional
 
 
@@ -209,6 +212,151 @@ MOCK_INVOICE_DB: dict[str, dict] = {
 
 
 # ---------------------------------------------------------------------------
+# Normalization Helpers
+# ---------------------------------------------------------------------------
+# AI Traceability: Skills Agent added deterministic normalization utilities to
+# standardize vendor names, dates, and monetary fields in mock OCR outputs.
+def _normalize_vendor_name(vendor_name: str) -> str:
+    cleaned = " ".join(str(vendor_name).strip().split())
+    if not cleaned:
+        return cleaned
+    cleaned = re.sub(r"\bA\s*\.?\s*S\s*\.?\b", "A.S.", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bLTD\s*\.?\b", "LTD.", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bSTI\s*\.?\b", "STI.", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bSARL\b", "SARL", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bGMBH\b", "GMBH", cleaned, flags=re.IGNORECASE)
+    return " ".join(cleaned.split())
+
+
+# AI Traceability: Skills Agent implemented a locale-aware decimal parser to
+# normalize amounts like "1.250,50" or "1,250.50" into float values.
+def _normalize_decimal(value: object, default: Optional[float] = None) -> Optional[float]:
+    if value is None:
+        return default
+    if isinstance(value, (int, float, Decimal)):
+        try:
+            return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        except (InvalidOperation, ValueError):
+            return default
+    text = str(value).strip()
+    if not text:
+        return default
+    text = re.sub(r"[^0-9,.-]", "", text)
+    if not text:
+        return default
+    decimal_sep = None
+    if "," in text and "." in text:
+        decimal_sep = "," if text.rfind(",") > text.rfind(".") else "."
+    elif "," in text:
+        decimal_sep = "," if len(text.split(",")[-1]) in (1, 2) else None
+    elif "." in text:
+        decimal_sep = "." if len(text.split(".")[-1]) in (1, 2) else None
+    if decimal_sep == ",":
+        normalized = text.replace(".", "").replace(",", ".")
+    elif decimal_sep == ".":
+        normalized = text.replace(",", "")
+    else:
+        normalized = text.replace(",", "").replace(".", "")
+    try:
+        return float(Decimal(normalized).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, ValueError):
+        return default
+
+
+# AI Traceability: Skills Agent added ISO-8601 date normalization for common
+# Turkish invoice formats (e.g. 15.04.2026, 15/04/2026, 2026-04-15).
+def _normalize_date(date_value: str) -> str:
+    raw = str(date_value).strip()
+    if not raw:
+        return raw
+    date_formats = (
+        "%Y-%m-%d",
+        "%Y/%m/%d",
+        "%Y.%m.%d",
+        "%d.%m.%Y",
+        "%d/%m/%Y",
+        "%d-%m-%Y",
+    )
+    for fmt in date_formats:
+        try:
+            parsed = datetime.strptime(raw[:10], fmt)
+            return parsed.date().isoformat()
+        except ValueError:
+            continue
+    match = re.search(r"(\d{4}[-/.]\d{2}[-/.]\d{2})", raw)
+    if match:
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"):
+            try:
+                parsed = datetime.strptime(match.group(1), fmt)
+                return parsed.date().isoformat()
+            except ValueError:
+                continue
+    match = re.search(r"(\d{2}[-/.]\d{2}[-/.]\d{4})", raw)
+    if match:
+        for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y"):
+            try:
+                parsed = datetime.strptime(match.group(1), fmt)
+                return parsed.date().isoformat()
+            except ValueError:
+                continue
+    return raw
+
+
+# AI Traceability: Skills Agent added deterministic line-item normalization to
+# keep quantities, VAT, and totals consistent in mock OCR outputs.
+def _normalize_line_item(item: dict, fallback_line_no: int) -> dict:
+    normalized = dict(item)
+    normalized["line_no"] = int(normalized.get("line_no", fallback_line_no))
+    normalized["description"] = " ".join(str(normalized.get("description", "")).split())
+    normalized["unit"] = str(normalized.get("unit", "pcs")).strip() or "pcs"
+
+    quantity = _normalize_decimal(normalized.get("quantity"))
+    unit_price = _normalize_decimal(normalized.get("unit_price"))
+    vat_rate = _normalize_decimal(normalized.get("vat_rate"), default=20.0)
+    vat_amount = _normalize_decimal(normalized.get("vat_amount"))
+    line_total = _normalize_decimal(normalized.get("line_total"))
+
+    if quantity is not None:
+        normalized["quantity"] = quantity
+    if unit_price is not None:
+        normalized["unit_price"] = unit_price
+    if vat_rate is not None:
+        normalized["vat_rate"] = vat_rate
+
+    if vat_amount is None and quantity is not None and unit_price is not None and vat_rate is not None:
+        vat_amount = _normalize_decimal(quantity * unit_price * (vat_rate / 100))
+    if line_total is None and quantity is not None and unit_price is not None:
+        base_total = quantity * unit_price
+        line_total = _normalize_decimal(base_total + (vat_amount or 0.0))
+
+    if vat_amount is not None:
+        normalized["vat_amount"] = vat_amount
+    if line_total is not None:
+        normalized["line_total"] = line_total
+
+    return normalized
+
+
+# AI Traceability: Skills Agent centralized invoice normalization to ensure
+# consistent header fields and line items for downstream consumers.
+def _normalize_invoice_record(invoice: dict) -> dict:
+    normalized = dict(invoice)
+    normalized["vendor_name"] = _normalize_vendor_name(normalized.get("vendor_name", ""))
+    normalized["date"] = _normalize_date(normalized.get("date", ""))
+    normalized["total_amount"] = _normalize_decimal(normalized.get("total_amount"))
+    normalized["total_vat"] = _normalize_decimal(normalized.get("total_vat"))
+    normalized["subtotal"] = _normalize_decimal(normalized.get("subtotal"))
+
+    line_items = normalized.get("line_items", [])
+    normalized_items = []
+    for idx, item in enumerate(line_items, start=1):
+        normalized_items.append(_normalize_line_item(item, idx))
+    normalized["line_items"] = normalized_items
+
+    return normalized
+
+
+# ---------------------------------------------------------------------------
 # Core Invoice Retrieval
 # ---------------------------------------------------------------------------
 # AI Traceability: Skills Agent implemented this retrieval function with
@@ -237,9 +385,13 @@ def process_invoice(invoice_id: str) -> dict:
             "error": f"Invoice '{invoice_id}' not found in the database.",
         }
 
+    # AI Traceability: Skills Agent added normalization to enforce consistent
+    # vendor, date, and monetary formats in mock OCR outputs.
+    normalized_invoice = _normalize_invoice_record(invoice)
+
     return {
         "success": True,
-        "data": invoice,
+        "data": normalized_invoice,
     }
 
 
@@ -254,15 +406,18 @@ def list_all_invoices() -> dict:
     """
     summaries = []
     for inv in MOCK_INVOICE_DB.values():
+        # AI Traceability: Skills Agent normalized summary fields for
+        # consistent vendor/date/amount presentation in list views.
+        normalized_inv = _normalize_invoice_record(inv)
         summaries.append({
-            "invoice_id": inv["invoice_id"],
-            "vendor_name": inv["vendor_name"],
-            "date": inv["date"],
-            "total_amount": inv["total_amount"],
-            "category": inv["category"],
-            "status": inv["status"],
-            "page_count": inv.get("page_count", 1),
-            "line_item_count": len(inv.get("line_items", [])),
+            "invoice_id": normalized_inv["invoice_id"],
+            "vendor_name": normalized_inv["vendor_name"],
+            "date": normalized_inv["date"],
+            "total_amount": normalized_inv["total_amount"],
+            "category": normalized_inv["category"],
+            "status": normalized_inv["status"],
+            "page_count": normalized_inv.get("page_count", 1),
+            "line_item_count": len(normalized_inv.get("line_items", [])),
         })
     return {
         "success": True,
@@ -300,7 +455,10 @@ def get_line_items(invoice_id: str) -> dict:
             "error": f"Invoice '{invoice_id}' not found in the database.",
         }
 
-    line_items = invoice.get("line_items", [])
+    # AI Traceability: Skills Agent normalized line items for deterministic
+    # VAT and total calculations in mock OCR results.
+    normalized_invoice = _normalize_invoice_record(invoice)
+    line_items = normalized_invoice.get("line_items", [])
     return {
         "success": True,
         "invoice_id": invoice_id,
@@ -340,8 +498,11 @@ def process_invoice_pages(invoice_id: str) -> dict:
             "error": f"Invoice '{invoice_id}' not found in the database.",
         }
 
-    line_items = invoice.get("line_items", [])
-    page_count = invoice.get("page_count", 1)
+    # AI Traceability: Skills Agent normalized per-page payloads for
+    # consistent line-item and header formatting.
+    normalized_invoice = _normalize_invoice_record(invoice)
+    line_items = normalized_invoice.get("line_items", [])
+    page_count = normalized_invoice.get("page_count", 1)
 
     # Distribute line items across pages evenly for the mock
     pages = []
