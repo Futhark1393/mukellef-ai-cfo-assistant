@@ -59,41 +59,83 @@ function statCard(icon, value, label) {
 // --- Dashboard ---
 async function loadDashboard() {
     const el = document.getElementById('dash-content');
-    el.innerHTML = '<p class="text-muted">Yükleniyor...</p>';
-    const [cari, suppliers, stock, bank, checks, employees] = await Promise.all([
+    el.innerHTML = '<div style="display:flex; justify-content:center; padding: 40px;"><div style="width:24px;height:24px;border:3px solid var(--brand-500);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></div></div>';
+    
+    // Fetch all necessary data concurrently
+    const [cari, suppliers, stock, bank, checks, employees, invoices, profitability] = await Promise.all([
         api('/api/cari/accounts'), api('/api/suppliers'), api('/api/stock'),
-        api('/api/bank/summary'), api('/api/checks/summary'), api('/api/employees/summary')
+        api('/api/bank/summary'), api('/api/checks/summary'), api('/api/employees/summary'),
+        api('/api/invoices'), api('/api/profitability')
     ]);
-    const totalCari = cari.data ? cari.data.reduce((s,a)=>s+a.balance,0) : 0;
-    const totalSupplier = suppliers.data ? suppliers.data.reduce((s,a)=>s+a.balance,0) : 0;
+    
     const bankBal = bank.data ? bank.data.total_bank_balance : 0;
-    const chkRec = checks.data ? checks.data.grand_total_receivable : 0;
-    const chkPay = checks.data ? checks.data.grand_total_payable : 0;
+    const netProfit = profitability.data ? profitability.data.summary.net_profit : 0;
     const empActive = employees.data ? employees.data.today_active : 0;
+    const chkRec = checks.data ? checks.data.grand_total_receivable : 0;
+
+    let recentInvoicesHTML = '<p class="text-muted text-sm">Veri bulunamadı.</p>';
+    if (invoices.data && invoices.data.length > 0) {
+        // Get last 4 invoices
+        const recent = invoices.data.slice(-4).reverse();
+        recentInvoicesHTML = '<ul class="recent-activity-list">' + recent.map(i => `
+            <li class="recent-activity-item">
+                <div class="recent-activity-left">
+                    <span class="recent-activity-title">${i.vendor_name}</span>
+                    <span class="recent-activity-meta">${i.date} &bull; ${i.category}</span>
+                </div>
+                <div class="recent-activity-right text-right">
+                    <div class="recent-activity-amount text-red">-${fmt(i.total_amount)}</div>
+                    ${i.status==='processed' ? badge('İşlendi','green') : badge('Bekliyor','amber')}
+                </div>
+            </li>
+        `).join('') + '</ul>';
+    }
 
     el.innerHTML = `
+        <div class="welcome-banner">
+            <h3>Yapay Zeka CFO Asistanınıza Hoş Geldiniz</h3>
+            <p>Finansal verileriniz analiz edildi. İşletmenizin anlık nakit durumu stabil, bugün <strong>${empActive} personel</strong> aktif olarak çalışıyor ve banka hesaplarınızda toplam <strong>${fmt(bankBal)}</strong> nakit bulunuyor.</p>
+            <div class="quick-actions">
+                <button class="quick-action-btn" onclick="navigate('invoices'); document.getElementById('ocr-file')?.click();">
+                    <span class="icon">📸</span> Fatura Tara (OCR)
+                </button>
+                <button class="quick-action-btn" onclick="navigate('cashflow')">
+                    <span class="icon">📈</span> Nakit Akışı Analizi
+                </button>
+                <button class="quick-action-btn" onclick="navigate('profitability')">
+                    <span class="icon">💹</span> Karlılık Raporu
+                </button>
+            </div>
+        </div>
+
         <div class="stats-grid">
             ${statCard('🏦', fmt(bankBal), 'Toplam Banka Bakiyesi')}
-            ${statCard('👥', fmt(totalCari), 'Toplam Cari Alacak')}
-            ${statCard('📦', fmt(totalSupplier), 'Toplam Tedarikçi Borç')}
+            ${statCard('💵', fmt(netProfit), 'Dönem Net Karı')}
             ${statCard('📝', fmt(chkRec), 'Alınacak Çek/Senet')}
-            ${statCard('💸', fmt(chkPay), 'Ödenecek Çek/Senet')}
             ${statCard('👨‍💼', empActive + ' kişi', 'Bugün Aktif Personel')}
         </div>
+        
         <div class="grid-2">
             <div class="glass-card">
-                <div class="section-title">Günlük Nakit Akışı</div>
-                ${bank.data ? bank.data.daily_breakdown.map(d =>
-                    `<div class="flex-between mb-4"><span class="text-muted text-sm">${d.date}</span>
-                    <span><span class="text-green">+${fmt(d.income)}</span> / <span class="text-red">-${fmt(d.expense)}</span></span></div>`
-                ).join('') : ''}
+                <div class="section-title">Son İşlenen Faturalar</div>
+                ${recentInvoicesHTML}
+                <button class="btn btn-brand mt-4" style="width:100%" onclick="navigate('invoices')">Tüm Faturaları Gör</button>
             </div>
+            
             <div class="glass-card">
-                <div class="section-title">Stok Durumu</div>
-                ${stock.data ? stock.data.map(s =>
-                    `<div class="flex-between mb-4"><span>${s.name}</span>
-                    <span>${s.low_stock ? badge(s.current_quantity+' '+s.unit,'red') : badge(s.current_quantity+' '+s.unit,'green')}</span></div>`
-                ).join('') : ''}
+                <div class="section-title">Kritik Stok Uyarıları</div>
+                ${stock.data ? stock.data.filter(s => s.low_stock).slice(0, 5).map(s =>
+                    `<div class="flex-between mb-4 pb-2" style="border-bottom: 1px solid rgba(255,255,255,0.03)">
+                        <div>
+                            <div class="font-bold text-sm">${s.name}</div>
+                            <div class="text-xs text-muted">${s.category}</div>
+                        </div>
+                        <div class="text-right">
+                            ${badge(s.current_quantity+' '+s.unit,'red')}
+                        </div>
+                    </div>`
+                ).join('') || '<p class="text-green text-sm mt-2">Düşük seviyede kritik stok bulunmuyor.</p>' : ''}
+                <button class="btn btn-brand mt-4" style="width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text-primary); box-shadow:none" onclick="navigate('stock')">Stok Paneline Git</button>
             </div>
         </div>`;
 }
@@ -143,7 +185,11 @@ async function uploadOCR() {
             <div class="flex-between"><span class="text-muted">Kalem Sayısı</span><strong>${res.line_item_count}</strong></div>
         </div>`;
         toast('Fatura başarıyla tarandı!');
-    } else { el.innerHTML = '<p class="text-red">Tarama başarısız</p>'; }
+        setTimeout(loadInvoices, 500); // Tabloyu yenile
+    } else { 
+        const err = (res && res.error) ? res.error : 'Bilinmeyen Hata';
+        el.innerHTML = `<p class="text-red">Tarama başarısız: ${err}</p>`; 
+    }
 }
 
 // --- Suppliers ---
