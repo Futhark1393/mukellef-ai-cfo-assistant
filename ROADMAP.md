@@ -54,3 +54,5 @@
 *   **Futhark (System Architecture focus):**
     *   [ ] Implement PostgreSQL persistence layer with migrations.
     *   [ ] Add JWT-based authentication for multi-tenant users.
+    *   [ ] Wire auth endpoints to Postgres (register/login/refresh).
+    *   [ ] Document required auth/database environment variables.
