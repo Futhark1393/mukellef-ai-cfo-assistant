@@ -17,3 +17,8 @@ starlette==1.0.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.46.0
+
+# --- Production OCR dependencies (not needed for mock MVP) ---
+# PyMuPDF==1.25.0        # PDF page rendering (fitz)
+# Pillow==11.2.0         # Image preprocessing
+# google-genai==1.14.0   # Gemini Vision API client
