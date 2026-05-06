@@ -143,7 +143,11 @@ async function uploadOCR() {
             <div class="flex-between"><span class="text-muted">Kalem Sayısı</span><strong>${res.line_item_count}</strong></div>
         </div>`;
         toast('Fatura başarıyla tarandı!');
-    } else { el.innerHTML = '<p class="text-red">Tarama başarısız</p>'; }
+        setTimeout(loadInvoices, 500); // Tabloyu yenile
+    } else { 
+        const err = (res && res.error) ? res.error : 'Bilinmeyen Hata';
+        el.innerHTML = `<p class="text-red">Tarama başarısız: ${err}</p>`; 
+    }
 }
 
 // --- Suppliers ---
