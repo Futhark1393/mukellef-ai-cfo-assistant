@@ -1,3 +1,7 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 # AI Traceability: Skills Agent constructed the main FastAPI routing.
 # Extended by Skills Agent to add line-item retrieval and invoice listing endpoints.
 # Extended by Skills Agent to add all business operations endpoints.
@@ -261,14 +265,28 @@ def create_cari_payment(payload: CariPaymentRequest):
 # ---------------------------------------------------------------------------
 @app.post("/api/ocr/upload")
 def upload_invoice(file: UploadFile = File(...)):
-    """Upload an invoice file and retrieve its parsed data (mock)."""
-    invoice_id = (file.filename or "").split(".")[0]
-    if not invoice_id:
+    """Upload an invoice file and retrieve its parsed data using Gemini OCR."""
+    try:
+        content = file.file.read()
+    except Exception:
+        content = None
+        
+    if content:
+        # Live OCR with Gemini
+        from core.gemini_ocr import process_invoice_live
+        result = process_invoice_live(content, file.content_type or "image/jpeg")
+    else:
+        # Fallback to mock if empty file
         invoice_id = "INV-2026-001"
-    result = process_invoice(invoice_id)
+        result = process_invoice(invoice_id)
+        
     if result.get("success"):
         data = result["data"]
-        stock_groups = get_stock_groups(invoice_id) if data.get("line_items") else None
+        
+        # If we have live data, group those line items directly
+        from core.stock_grouping import group_line_items
+        stock_groups_data = group_line_items(data.get("line_items", [])) if data.get("line_items") else {"groups": [], "summary": {}}
+        
         return {
             "success": True,
             "vendor": data.get("vendor_name"),
@@ -279,8 +297,8 @@ def upload_invoice(file: UploadFile = File(...)):
             "page_count": data.get("page_count", 1),
             "line_item_count": len(data.get("line_items", [])),
             "line_items": data.get("line_items", []),
-            "stock_groups": stock_groups.get("groups") if stock_groups else [],
-            "stock_group_summary": stock_groups.get("summary") if stock_groups else {},
+            "stock_groups": stock_groups_data.get("groups", []),
+            "stock_group_summary": stock_groups_data.get("summary", {}),
         }
     return {"success": False, "error": result.get("error")}
 
