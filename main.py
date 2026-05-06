@@ -11,6 +11,7 @@ from core.cashflow import predict_cashflow
 from core.cari import get_cari_account, list_cari_accounts, record_payment
 from core.expense_manager import allocate_prepaid_expense
 from core.ocr_engine import (
+    get_stock_groups,
     get_line_items,
     list_all_invoices,
     process_invoice,
@@ -171,6 +172,9 @@ def upload_invoice(file: UploadFile = File(...)):
     result = process_invoice(invoice_id)
     if result.get("success"):
         data = result["data"]
+        # AI Traceability: Skills Agent added stock grouping payloads to the
+        # OCR upload response for accounting-ready summaries.
+        stock_groups = get_stock_groups(invoice_id) if data.get("line_items") else None
         return {
             "success": True,
             "vendor": data.get("vendor_name"),
@@ -181,6 +185,8 @@ def upload_invoice(file: UploadFile = File(...)):
             "page_count": data.get("page_count", 1),
             "line_item_count": len(data.get("line_items", [])),
             "line_items": data.get("line_items", []),
+            "stock_groups": stock_groups.get("groups") if stock_groups else [],
+            "stock_group_summary": stock_groups.get("summary") if stock_groups else {},
         }
     return {"success": False, "error": result.get("error")}
 
@@ -207,3 +213,14 @@ def get_invoice_line_items(invoice_id: str):
 def get_invoice_pages(invoice_id: str):
     """Return per-page breakdown of the invoice (mock)."""
     return process_invoice_pages(invoice_id)
+
+
+@app.get("/api/invoice/{invoice_id}/stock-groups")
+# AI Traceability: Skills Agent added a stock grouping endpoint to expose
+# line-item group summaries for purchase invoices.
+def get_invoice_stock_groups(invoice_id: str):
+    """Return stock group summaries for the invoice line items."""
+    result = get_stock_groups(invoice_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result

@@ -8,6 +8,8 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import re
 from typing import Optional
 
+from core.stock_grouping import group_line_items
+
 
 # ---------------------------------------------------------------------------
 # Mock Invoice Database (Enriched with Line Items)
@@ -354,6 +356,28 @@ def _normalize_invoice_record(invoice: dict) -> dict:
     normalized["line_items"] = normalized_items
 
     return normalized
+
+
+# AI Traceability: Skills Agent added stock-group extraction for OCR invoices
+# to produce accounting-ready summaries from line items.
+def get_stock_groups(invoice_id: str) -> dict:
+    invoice: Optional[dict] = MOCK_INVOICE_DB.get(invoice_id)
+
+    if invoice is None:
+        return {
+            "success": False,
+            "error": f"Invoice '{invoice_id}' not found in the database.",
+        }
+
+    normalized_invoice = _normalize_invoice_record(invoice)
+    grouping = group_line_items(normalized_invoice.get("line_items", []))
+
+    return {
+        "success": True,
+        "invoice_id": invoice_id,
+        "groups": grouping["groups"],
+        "summary": grouping["summary"],
+    }
 
 
 # ---------------------------------------------------------------------------
