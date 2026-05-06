@@ -1,13 +1,16 @@
 # AI Traceability: Skills Agent constructed the main FastAPI routing.
 # Extended by Skills Agent to add line-item retrieval and invoice listing endpoints.
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+# Extended by Skills Agent to add all business operations endpoints.
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from typing import Optional
 import jwt
 
-from core.cashflow import predict_cashflow
+from core.cashflow import predict_cashflow, predict_cashflow_scenarios
 from core.cari import get_cari_account, list_cari_accounts, record_payment
 from core.expense_manager import allocate_prepaid_expense
 from core.ocr_engine import (
@@ -23,10 +26,21 @@ from core.supplier_payments import (
     record_supplier_payment,
     schedule_supplier_payment,
 )
+from core.burn_rate import analyze_cashflow_health
+from core.stock_manager import list_stocks, get_stock, record_movement, valuate_stock
+from core.check_manager import list_checks, list_notes, get_check, update_check_status, get_check_summary
+from core.bank_tracker import list_bank_accounts, get_bank_account, list_transactions, get_financial_summary
+from core.tax_payroll import calculate_kdv, calculate_muhtasar, calculate_payroll, get_tax_summary
+from core.employee_tracker import list_employees, get_employee_attendance, get_attendance_summary
+from core.vehicle_insurance import list_vehicles, get_vehicle, periodize_insurance
+from core.profitability import analyze_profitability
 from core import auth, crud, schemas
 from core.db import get_db
 
 
+# ---------------------------------------------------------------------------
+# Request Models
+# ---------------------------------------------------------------------------
 class CashflowRequest(BaseModel):
     current_balance: float
     monthly_revenue: float
@@ -61,9 +75,43 @@ class SupplierPaymentPlanRequest(BaseModel):
     due_date: str
     note: str | None = None
 
+
+class BurnRateRequest(BaseModel):
+    historical_data: list[dict]
+    current_balance: float
+    method: str = "average"
+
+
+class CashflowScenariosRequest(BaseModel):
+    current_balance: float
+    monthly_revenue: float
+    monthly_expense: float
+    months: int = 6
+
+
+class StockMovementRequest(BaseModel):
+    stock_id: str
+    movement_type: str
+    quantity: int
+    unit_cost: float = 0.0
+    date: str = ""
+    description: str = ""
+
+
+class CheckStatusRequest(BaseModel):
+    check_id: str
+    new_status: str
+
+
 app = FastAPI(title="Mukellef - AI CFO Assistant")
 
+# Serve static files (CSS, JS, images)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+# ---------------------------------------------------------------------------
+# Auth Endpoints
+# ---------------------------------------------------------------------------
 @app.post("/api/auth/register", response_model=schemas.TokenResponse)
 def register_user(payload: schemas.RegisterRequest, db: Session = Depends(get_db)):
     try:
@@ -113,23 +161,34 @@ def refresh_token(payload: schemas.RefreshRequest, db: Session = Depends(get_db)
     crud.update_refresh_token_hash(db, user, auth.hash_refresh_token(refresh_token_value))
     return schemas.TokenResponse(access_token=access_token, refresh_token=refresh_token_value)
 
+
+# ---------------------------------------------------------------------------
 # Serve the main HTML dashboard
+# ---------------------------------------------------------------------------
 @app.get("/")
 def read_root():
     return FileResponse("static/index.html")
 
+
+# ---------------------------------------------------------------------------
+# Expense Allocation Endpoints
+# ---------------------------------------------------------------------------
 @app.get("/api/expense")
 def run_expense_allocation(amount: float, months: int):
     return allocate_prepaid_expense(amount, months)
-
-@app.get("/api/cashflow")
-def run_cashflow(balance: float, rev: float, exp: float):
-    return predict_cashflow(balance, rev, exp)
 
 
 @app.post("/api/expense/allocate")
 def run_expense_allocation_post(payload: ExpenseRequest):
     return allocate_prepaid_expense(payload.amount, payload.months)
+
+
+# ---------------------------------------------------------------------------
+# Cashflow Prediction Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/cashflow")
+def run_cashflow(balance: float, rev: float, exp: float):
+    return predict_cashflow(balance, rev, exp)
 
 
 @app.post("/api/cashflow/predict")
@@ -143,12 +202,33 @@ def run_cashflow_post(payload: CashflowRequest):
     return {"success": True, "projections": projections}
 
 
+@app.post("/api/cashflow/scenarios")
+def run_cashflow_scenarios(payload: CashflowScenariosRequest):
+    result = predict_cashflow_scenarios(
+        payload.current_balance,
+        payload.monthly_revenue,
+        payload.monthly_expense,
+        payload.months,
+    )
+    return {"success": True, "data": result}
+
+
+# ---------------------------------------------------------------------------
+# Burn Rate & Runway Endpoints
+# ---------------------------------------------------------------------------
+@app.post("/api/burnrate/analyze")
+def run_burnrate_analysis(payload: BurnRateRequest):
+    result = analyze_cashflow_health(
+        payload.historical_data,
+        payload.current_balance,
+        payload.method,
+    )
+    return {"success": True, "data": result}
+
+
 # ---------------------------------------------------------------------------
 # Cari Endpoints
 # ---------------------------------------------------------------------------
-# AI Traceability: Skills Agent added cari account endpoints for mock current
-# account tracking and receipt creation.
-
 @app.get("/api/cari/accounts")
 def list_cari():
     return list_cari_accounts()
@@ -179,22 +259,15 @@ def create_cari_payment(payload: CariPaymentRequest):
 # ---------------------------------------------------------------------------
 # OCR Endpoints
 # ---------------------------------------------------------------------------
-# AI Traceability: Skills Agent extended the OCR API surface to support
-# invoice listing, single invoice detail with line items, line-item-only
-# retrieval, per-page breakdown, and file upload with enriched response.
-
 @app.post("/api/ocr/upload")
 def upload_invoice(file: UploadFile = File(...)):
     """Upload an invoice file and retrieve its parsed data (mock)."""
-    # Use filename as a mock invoice id when possible (e.g. INV-2026-001.pdf)
     invoice_id = (file.filename or "").split(".")[0]
     if not invoice_id:
         invoice_id = "INV-2026-001"
     result = process_invoice(invoice_id)
     if result.get("success"):
         data = result["data"]
-        # AI Traceability: Skills Agent added stock grouping payloads to the
-        # OCR upload response for accounting-ready summaries.
         stock_groups = get_stock_groups(invoice_id) if data.get("line_items") else None
         return {
             "success": True,
@@ -214,33 +287,26 @@ def upload_invoice(file: UploadFile = File(...)):
 
 @app.get("/api/invoices")
 def get_all_invoices():
-    """Return summary list of all invoices (no line items)."""
     return list_all_invoices()
 
 
 @app.get("/api/invoice/{invoice_id}")
 def get_invoice_detail(invoice_id: str):
-    """Return full invoice detail including line items."""
     return process_invoice(invoice_id)
 
 
 @app.get("/api/invoice/{invoice_id}/line-items")
 def get_invoice_line_items(invoice_id: str):
-    """Return only the line items for a given invoice."""
     return get_line_items(invoice_id)
 
 
 @app.get("/api/invoice/{invoice_id}/pages")
 def get_invoice_pages(invoice_id: str):
-    """Return per-page breakdown of the invoice (mock)."""
     return process_invoice_pages(invoice_id)
 
 
 @app.get("/api/invoice/{invoice_id}/stock-groups")
-# AI Traceability: Skills Agent added a stock grouping endpoint to expose
-# line-item group summaries for purchase invoices.
 def get_invoice_stock_groups(invoice_id: str):
-    """Return stock group summaries for the invoice line items."""
     result = get_stock_groups(invoice_id)
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
@@ -250,9 +316,6 @@ def get_invoice_stock_groups(invoice_id: str):
 # ---------------------------------------------------------------------------
 # Supplier Payment Endpoints (Tediyeler)
 # ---------------------------------------------------------------------------
-# AI Traceability: Skills Agent added supplier payment endpoints to track
-# daily payments and schedules in a deterministic mock flow.
-
 @app.get("/api/suppliers")
 def list_supplier_accounts():
     return list_suppliers()
@@ -291,3 +354,174 @@ def create_supplier_payment_plan(payload: SupplierPaymentPlanRequest):
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error"))
     return result
+
+
+# ---------------------------------------------------------------------------
+# Stock & Inventory Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/stock")
+def get_all_stocks():
+    return list_stocks()
+
+
+@app.get("/api/stock/{stock_id}")
+def get_stock_detail(stock_id: str):
+    result = get_stock(stock_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+
+
+@app.post("/api/stock/movement")
+def create_stock_movement(payload: StockMovementRequest):
+    result = record_movement(
+        payload.stock_id, payload.movement_type, payload.quantity,
+        payload.unit_cost, payload.date, payload.description,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error"))
+    return result
+
+
+@app.get("/api/stock/{stock_id}/valuation")
+def get_stock_valuation(stock_id: str, method: str = "fifo"):
+    result = valuate_stock(stock_id, method)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error"))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Check & Promissory Note Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/checks")
+def get_all_checks(check_type: Optional[str] = None, check_status: Optional[str] = None):
+    return list_checks(check_type, check_status)
+
+
+@app.get("/api/checks/summary")
+def get_checks_summary():
+    return get_check_summary()
+
+
+@app.get("/api/checks/{check_id}")
+def get_check_detail(check_id: str):
+    result = get_check(check_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+
+
+@app.post("/api/checks/status")
+def change_check_status(payload: CheckStatusRequest):
+    result = update_check_status(payload.check_id, payload.new_status)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error"))
+    return result
+
+
+@app.get("/api/notes")
+def get_all_notes(note_type: Optional[str] = None):
+    return list_notes(note_type)
+
+
+# ---------------------------------------------------------------------------
+# Bank & Financial Tracking Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/bank/accounts")
+def get_bank_accounts():
+    return list_bank_accounts()
+
+
+@app.get("/api/bank/accounts/{account_id}")
+def get_bank_detail(account_id: str):
+    result = get_bank_account(account_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+
+
+@app.get("/api/bank/transactions")
+def get_transactions(account_id: Optional[str] = None, txn_type: Optional[str] = None):
+    return list_transactions(account_id, txn_type)
+
+
+@app.get("/api/bank/summary")
+def get_bank_summary():
+    return get_financial_summary()
+
+
+# ---------------------------------------------------------------------------
+# Tax & Payroll Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/tax/summary")
+def get_tax_overview(period: str = "2026-04"):
+    return get_tax_summary(period)
+
+
+@app.get("/api/tax/kdv")
+def get_kdv(period: str = "2026-04"):
+    return calculate_kdv(period)
+
+
+@app.get("/api/tax/muhtasar")
+def get_muhtasar(period: str = "2026-04"):
+    return calculate_muhtasar(period)
+
+
+@app.get("/api/payroll")
+def get_payroll(period: str = "2026-04"):
+    return calculate_payroll(period)
+
+
+# ---------------------------------------------------------------------------
+# Employee Attendance Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/employees")
+def get_all_employees():
+    return list_employees()
+
+
+@app.get("/api/employees/summary")
+def get_employee_summary():
+    return get_attendance_summary()
+
+
+@app.get("/api/employees/{employee_id}")
+def get_employee_detail(employee_id: str):
+    result = get_employee_attendance(employee_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Vehicle & Insurance Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/vehicles")
+def get_all_vehicles():
+    return list_vehicles()
+
+
+@app.get("/api/vehicles/{vehicle_id}")
+def get_vehicle_detail(vehicle_id: str):
+    result = get_vehicle(vehicle_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+
+
+@app.get("/api/vehicles/{vehicle_id}/insurance-periods")
+def get_vehicle_insurance_periods(vehicle_id: str):
+    result = periodize_insurance(vehicle_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error"))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Profitability Analysis Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/profitability")
+def get_profitability():
+    return analyze_profitability()

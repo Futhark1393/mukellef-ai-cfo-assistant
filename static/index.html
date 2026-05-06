@@ -1,322 +1,149 @@
-<!-- AI Traceability: Skills Agent designed this frontend dashboard for the Mukellef AI CFO Assistant MVP. -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mükellef - AI CFO Assistant</title>
-    <meta name="description" content="AI-augmented autonomous accounting assistant with OCR invoice parsing, cashflow prediction, and expense allocation." />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        brand: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81' },
-                        surface: { 800:'#1e1b2e',900:'#13111c',950:'#0c0a14' }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body { background: linear-gradient(135deg, #0c0a14 0%, #1e1b2e 50%, #13111c 100%); }
-        .glass { background: rgba(255,255,255,0.04); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); }
-        .glow { box-shadow: 0 0 30px rgba(99,102,241,0.15); }
-        .card-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 8px 40px rgba(99,102,241,0.2); }
-        .pulse-dot { animation: pulse 2s infinite; }
-        @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.4; } }
-        .fade-in { animation: fadeIn 0.6s ease-out; }
-        @keyframes fadeIn { from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:translateY(0); } }
-        input[type="file"]::file-selector-button {
-            background: linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border:none;
-            padding:8px 16px; border-radius:8px; cursor:pointer; font-weight:500; margin-right:12px;
-            transition: opacity 0.2s;
-        }
-        input[type="file"]::file-selector-button:hover { opacity:0.85; }
-        input[type="number"], select {
-            background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
-            color:#e2e8f0; border-radius:8px; padding:10px 14px; width:100%; outline:none;
-            transition: border-color 0.2s;
-        }
-        input[type="number"]:focus, select:focus { border-color: #6366f1; }
-    </style>
+    <meta name="description" content="AI destekli otonom muhasebe asistanı - fatura, nakit akış, stok, çek/senet, bordro yönetimi">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="min-h-screen font-sans text-gray-200 antialiased">
-
-    <!-- Header -->
-    <header class="glass sticky top-0 z-50 border-b border-white/5">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">M</div>
-                <div>
-                    <h1 class="text-lg font-bold text-white tracking-tight">Mükellef</h1>
-                    <p class="text-[10px] text-brand-300 font-medium tracking-widest uppercase">AI CFO Assistant</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="pulse-dot inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span class="text-xs text-emerald-400 font-medium">System Online</span>
-            </div>
+<body>
+<!-- Sidebar -->
+<aside class="sidebar">
+    <div class="sidebar-brand">
+        <div class="logo">M</div>
+        <div><h1>Mükellef</h1><p>AI CFO Assistant</p></div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-section">
+            <div class="nav-section-title">Genel</div>
+            <div class="nav-item active" data-nav="dashboard" onclick="navigate('dashboard')"><span class="icon">📊</span> Dashboard</div>
         </div>
+        <div class="nav-section">
+            <div class="nav-section-title">Finans</div>
+            <div class="nav-item" data-nav="cari" onclick="navigate('cari')"><span class="icon">👥</span> Cari Hesaplar</div>
+            <div class="nav-item" data-nav="invoices" onclick="navigate('invoices')"><span class="icon">📄</span> Fatura İşleme</div>
+            <div class="nav-item" data-nav="suppliers" onclick="navigate('suppliers')"><span class="icon">💰</span> Tedarikçi Ödemeleri</div>
+            <div class="nav-item" data-nav="bank" onclick="navigate('bank')"><span class="icon">🏦</span> Banka & Finans</div>
+            <div class="nav-item" data-nav="cashflow" onclick="navigate('cashflow')"><span class="icon">📈</span> Nakit Akış</div>
+            <div class="nav-item" data-nav="checks" onclick="navigate('checks')"><span class="icon">🧾</span> Çek & Senet</div>
+        </div>
+        <div class="nav-section">
+            <div class="nav-section-title">Operasyon</div>
+            <div class="nav-item" data-nav="stock" onclick="navigate('stock')"><span class="icon">📦</span> Stok & Envanter</div>
+            <div class="nav-item" data-nav="tax" onclick="navigate('tax')"><span class="icon">📋</span> Vergi & Bordro</div>
+            <div class="nav-item" data-nav="employees" onclick="navigate('employees')"><span class="icon">👨‍💼</span> Personel Takibi</div>
+            <div class="nav-item" data-nav="vehicles" onclick="navigate('vehicles')"><span class="icon">🚗</span> Araç & Sigorta</div>
+            <div class="nav-item" data-nav="profitability" onclick="navigate('profitability')"><span class="icon">💹</span> Karlılık Analizi</div>
+        </div>
+    </nav>
+</aside>
+
+<!-- Main -->
+<div class="main-content">
+    <header class="topbar">
+        <h2 id="page-title">Dashboard</h2>
+        <div class="status">Sistem Aktif</div>
     </header>
+    <div class="page-content">
+        <!-- Dashboard -->
+        <div id="sec-dashboard" class="section active"><div id="dash-content"></div></div>
 
-    <main class="max-w-7xl mx-auto px-6 py-10 space-y-8">
-
-        <!-- Page Title -->
-        <div class="fade-in">
-            <h2 class="text-2xl font-bold text-white">Dashboard</h2>
-            <p class="text-sm text-gray-400 mt-1">Manage invoices, forecast cashflow, and allocate prepaid expenses.</p>
+        <!-- Cari -->
+        <div id="sec-cari" class="section">
+            <div class="section-title">Cari Hesaplar</div>
+            <p class="section-desc">Müşteri veresiye hesapları ve tahsilat takibi</p>
+            <div id="cari-content"></div>
         </div>
 
-        <!-- Cards Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-            <!-- 1 · OCR Upload -->
-            <section id="ocr-section" class="glass rounded-2xl p-6 card-hover fade-in flex flex-col" style="animation-delay:0.1s">
-                <div class="flex items-center gap-3 mb-5">
-                    <div class="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    </div>
-                    <div>
-                        <h3 class="text-white font-semibold">OCR Invoice Upload</h3>
-                        <p class="text-xs text-gray-400">Upload & parse invoices via AI</p>
-                    </div>
-                </div>
-                <div class="flex-1 flex flex-col justify-between">
-                    <div class="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-brand-500/40 transition-colors cursor-pointer" id="drop-zone">
-                        <svg class="mx-auto w-8 h-8 text-gray-500 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-                        <p class="text-sm text-gray-400 mb-3">Drag & drop or browse</p>
-                        <input type="file" id="invoice-file" accept="image/*,.pdf" class="text-xs text-gray-400 w-full" />
-                    </div>
-                    <button id="btn-parse" onclick="parseInvoice()" class="mt-4 w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-brand-500/20">
-                        Parse Invoice
-                    </button>
-                </div>
-                <div id="ocr-result" class="mt-4 text-sm hidden">
-                    <div class="glass rounded-xl p-4 space-y-2" id="ocr-result-content"></div>
-                </div>
-            </section>
-
-            <!-- 2 · Cashflow Prediction -->
-            <section id="cashflow-section" class="glass rounded-2xl p-6 card-hover fade-in flex flex-col" style="animation-delay:0.2s">
-                <div class="flex items-center gap-3 mb-5">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13l4 4L10 13m4-6l4 4 3-4"/></svg>
-                    </div>
-                    <div>
-                        <h3 class="text-white font-semibold">Cashflow Prediction</h3>
-                        <p class="text-xs text-gray-400">6-month financial forecast</p>
-                    </div>
-                </div>
-                <div class="space-y-3 flex-1">
-                    <div><label class="text-xs text-gray-400 mb-1 block">Current Balance (₺)</label><input type="number" id="cf-balance" placeholder="100000" /></div>
-                    <div><label class="text-xs text-gray-400 mb-1 block">Monthly Revenue (₺)</label><input type="number" id="cf-revenue" placeholder="30000" /></div>
-                    <div><label class="text-xs text-gray-400 mb-1 block">Monthly Expense (₺)</label><input type="number" id="cf-expense" placeholder="25000" /></div>
-                </div>
-                <button id="btn-predict" onclick="predictCashflow()" class="mt-4 w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-emerald-500/20">
-                    Run Prediction
-                </button>
-                <div id="cashflow-result" class="mt-4 hidden">
-                    <div class="glass rounded-xl p-4 space-y-1" id="cashflow-result-content"></div>
-                </div>
-            </section>
-
-            <!-- 3 · Expense Allocation -->
-            <section id="expense-section" class="glass rounded-2xl p-6 card-hover fade-in flex flex-col" style="animation-delay:0.3s">
-                <div class="flex items-center gap-3 mb-5">
-                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10H9m3-14a9 9 0 110 18 9 9 0 010-18z"/></svg>
-                    </div>
-                    <div>
-                        <h3 class="text-white font-semibold">Expense Allocation</h3>
-                        <p class="text-xs text-gray-400">Dönemsellik İlkesi</p>
-                    </div>
-                </div>
-                <div class="space-y-3 flex-1">
-                    <div><label class="text-xs text-gray-400 mb-1 block">Total Expense (₺)</label><input type="number" id="ea-total" placeholder="12000" /></div>
-                    <div><label class="text-xs text-gray-400 mb-1 block">Number of Periods</label><input type="number" id="ea-periods" placeholder="12" min="1" /></div>
-                    <div><label class="text-xs text-gray-400 mb-1 block">Start Month</label>
-                        <select id="ea-start">
-                            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
-                            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
-                            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
-                            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
-                        </select>
-                    </div>
-                </div>
-                <button id="btn-allocate" onclick="allocateExpense()" class="mt-4 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-amber-500/20">
-                    Allocate
-                </button>
-                <div id="expense-result" class="mt-4 hidden">
-                    <div class="glass rounded-xl p-4 space-y-1" id="expense-result-content"></div>
-                </div>
-            </section>
+        <!-- Invoices -->
+        <div id="sec-invoices" class="section">
+            <div class="section-title">Fatura İşleme & OCR</div>
+            <p class="section-desc">Fatura tarama, muhasebeleştirme ve stok gruplama</p>
+            <div id="inv-content"></div>
         </div>
 
-        <!-- Footer -->
-        <footer class="text-center text-xs text-gray-500 pt-6 border-t border-white/5">
-            Mükellef · AI CFO Assistant — SolveX AI Hackathon 2026
-        </footer>
-    </main>
+        <!-- Suppliers -->
+        <div id="sec-suppliers" class="section">
+            <div class="section-title">Tedarikçi Ödemeleri (Tediyeler)</div>
+            <p class="section-desc">Tedarikçi borç takibi ve ödeme planlaması</p>
+            <div id="sup-content"></div>
+        </div>
 
-    <script>
-        // AI Traceability: Skills Agent wrote all frontend interaction logic for the MVP dashboard.
+        <!-- Stock -->
+        <div id="sec-stock" class="section">
+            <div class="section-title">Stok & Envanter Yönetimi</div>
+            <p class="section-desc">Giren/çıkan stok takibi ve FIFO/LIFO değerleme</p>
+            <div id="stock-content"></div>
+        </div>
 
-        const API_BASE = "";
-        const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        <!-- Bank -->
+        <div id="sec-bank" class="section">
+            <div class="section-title">Banka Hareketleri & Finansal Takip</div>
+            <p class="section-desc">Günlük banka hareketleri ve finansal analiz</p>
+            <div id="bank-content"></div>
+        </div>
 
-        // --- OCR Invoice Upload ---
-        // AI Traceability: Skills Agent implemented mock OCR parsing with API fallback.
-        async function parseInvoice() {
-            const fileInput = document.getElementById("invoice-file");
-            const resultDiv = document.getElementById("ocr-result");
-            const content = document.getElementById("ocr-result-content");
+        <!-- Cashflow -->
+        <div id="sec-cashflow" class="section">
+            <div class="section-title">Nakit Akış & Gider Yönetimi</div>
+            <p class="section-desc">6 aylık projeksiyon, senaryo analizi ve gider dağıtımı</p>
+            <div class="grid-2 mb-6">
+                <div class="glass-card">
+                    <div class="section-title">Nakit Akış Tahmini</div>
+                    <div class="form-group"><label class="form-label">Mevcut Bakiye (₺)</label><input type="number" id="cf-bal" class="form-input" placeholder="100000"></div>
+                    <div class="form-group"><label class="form-label">Aylık Gelir (₺)</label><input type="number" id="cf-rev" class="form-input" placeholder="30000"></div>
+                    <div class="form-group"><label class="form-label">Aylık Gider (₺)</label><input type="number" id="cf-exp" class="form-input" placeholder="25000"></div>
+                    <button class="btn btn-emerald" onclick="runCashflow()">Tahmin Çalıştır</button>
+                </div>
+                <div class="glass-card">
+                    <div class="section-title">Gider Dağıtımı (Dönemsellik)</div>
+                    <div class="form-group"><label class="form-label">Toplam Gider (₺)</label><input type="number" id="ea-total" class="form-input" placeholder="12000"></div>
+                    <div class="form-group"><label class="form-label">Dönem Sayısı</label><input type="number" id="ea-periods" class="form-input" placeholder="12" min="1"></div>
+                    <button class="btn btn-amber" onclick="runExpense()">Dağıt</button>
+                    <div id="ea-result"></div>
+                </div>
+            </div>
+            <div id="cf-result"></div>
+        </div>
 
-            if (!fileInput.files.length) {
-                showToast("Please select an invoice file first.", "warning");
-                return;
-            }
+        <!-- Checks -->
+        <div id="sec-checks" class="section">
+            <div class="section-title">Çek & Senet Yönetimi</div>
+            <p class="section-desc">Alınan/verilen çek ve senet takibi, takas kontrolü</p>
+            <div id="checks-content"></div>
+        </div>
 
-            content.innerHTML = '<p class="text-brand-300 animate-pulse">Parsing invoice...</p>';
-            resultDiv.classList.remove("hidden");
+        <!-- Tax -->
+        <div id="sec-tax" class="section">
+            <div class="section-title">Vergi & Bordro Süreçleri</div>
+            <p class="section-desc">KDV, Muhtasar ve maaş hesaplamaları</p>
+            <div id="tax-content"></div>
+        </div>
 
-            try {
-                const formData = new FormData();
-                formData.append("file", fileInput.files[0]);
-                const res = await fetch(`${API_BASE}/api/ocr/upload`, { method: "POST", body: formData });
-                const data = await res.json();
-                if (data.error) {
-                    showToast(data.error, "error");
-                    return;
-                }
-                renderOcrResult(content, data);
-            } catch {
-                // Fallback to mock data when backend is not available
-                const mock = { vendor: "ABC Tedarik A.Ş.", date: "2026-04-15", amount: 8450.00, tax: 1521.00, description: "Office supplies - Q2" };
-                renderOcrResult(content, mock);
-            }
-        }
+        <!-- Employees -->
+        <div id="sec-employees" class="section">
+            <div class="section-title">Personel Çalışma Takibi</div>
+            <p class="section-desc">Giriş/çıkış saatleri ve mesai hesaplaması</p>
+            <div id="emp-content"></div>
+        </div>
 
-        function renderOcrResult(el, data) {
-            el.innerHTML = `
-                <p class="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wider">Parsed Invoice</p>
-                ${row("Vendor", data.vendor)}${row("Date", data.date)}
-                ${row("Amount", "₺" + Number(data.amount).toLocaleString("tr-TR",{minimumFractionDigits:2}))}
-                ${row("Tax", "₺" + Number(data.tax).toLocaleString("tr-TR",{minimumFractionDigits:2}))}
-                ${row("Description", data.description)}`;
-        }
+        <!-- Vehicles -->
+        <div id="sec-vehicles" class="section">
+            <div class="section-title">Araç & Sigorta Gider Takibi</div>
+            <p class="section-desc">Araç kasko/sigorta dönemleri ve gider periodizasyonu</p>
+            <div id="vhc-content"></div>
+        </div>
 
-        function row(label, value) {
-            return `<div class="flex justify-between text-sm"><span class="text-gray-400">${label}</span><span class="text-white font-medium">${value}</span></div>`;
-        }
-
-        // --- Cashflow Prediction ---
-        // AI Traceability: Skills Agent implemented cashflow prediction with API call and client-side fallback.
-        async function predictCashflow() {
-            const balance = parseFloat(document.getElementById("cf-balance").value);
-            const revenue = parseFloat(document.getElementById("cf-revenue").value);
-            const expense = parseFloat(document.getElementById("cf-expense").value);
-
-            if ([balance, revenue, expense].some(isNaN)) {
-                showToast("Please fill in all cashflow fields.", "warning");
-                return;
-            }
-
-            const resultDiv = document.getElementById("cashflow-result");
-            const content = document.getElementById("cashflow-result-content");
-            content.innerHTML = '<p class="text-emerald-300 animate-pulse">Calculating...</p>';
-            resultDiv.classList.remove("hidden");
-
-            let projections;
-            try {
-                const res = await fetch(`${API_BASE}/api/cashflow/predict`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ current_balance: balance, monthly_revenue: revenue, monthly_expense: expense, months: 6 })
-                });
-                const data = await res.json();
-                projections = data.projections || data;
-            } catch {
-                // Client-side fallback calculation matching core/cashflow.py logic
-                projections = [];
-                let running = balance;
-                const net = revenue - expense;
-                for (let i = 1; i <= 6; i++) {
-                    running += net;
-                    projections.push({ month: `Month ${i}`, projected_balance: Math.round(running * 100) / 100 });
-                }
-            }
-
-            let html = '<p class="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wider">6-Month Forecast</p>';
-            projections.forEach(p => {
-                const color = p.projected_balance >= 0 ? "text-emerald-400" : "text-red-400";
-                html += `<div class="flex justify-between text-sm">
-                    <span class="text-gray-400">${p.month}</span>
-                    <span class="${color} font-medium">₺${Number(p.projected_balance).toLocaleString("tr-TR",{minimumFractionDigits:2})}</span>
-                </div>`;
-            });
-            content.innerHTML = html;
-        }
-
-        // --- Expense Allocation ---
-        // AI Traceability: Skills Agent implemented period-based expense allocation (Donemsellik Ilkesi).
-        async function allocateExpense() {
-            const total = parseFloat(document.getElementById("ea-total").value);
-            const periods = parseInt(document.getElementById("ea-periods").value);
-            const startMonth = parseInt(document.getElementById("ea-start").value);
-
-            if (isNaN(total) || isNaN(periods) || periods < 1) {
-                showToast("Please fill in all allocation fields.", "warning");
-                return;
-            }
-
-            let perPeriod;
-            let remainder;
-
-            try {
-                const res = await fetch(`${API_BASE}/api/expense/allocate`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ amount: total, months: periods })
-                });
-                const data = await res.json();
-                perPeriod = Math.round(Number(data.monthly_amount) * 100) / 100;
-                remainder = Math.round((total - perPeriod * periods) * 100) / 100;
-            } catch {
-                perPeriod = Math.round((total / periods) * 100) / 100;
-                remainder = Math.round((total - perPeriod * periods) * 100) / 100;
-            }
-
-            const resultDiv = document.getElementById("expense-result");
-            const content = document.getElementById("expense-result-content");
-
-            let html = '<p class="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wider">Allocation Schedule</p>';
-            for (let i = 0; i < periods; i++) {
-                const mIdx = (startMonth - 1 + i) % 12;
-                const year = 2026 + Math.floor((startMonth - 1 + i) / 12);
-                const amount = i === periods - 1 ? perPeriod + remainder : perPeriod;
-                html += `<div class="flex justify-between text-sm">
-                    <span class="text-gray-400">${MONTHS[mIdx]} ${year}</span>
-                    <span class="text-amber-400 font-medium">₺${amount.toLocaleString("tr-TR",{minimumFractionDigits:2})}</span>
-                </div>`;
-            }
-            content.innerHTML = html;
-            resultDiv.classList.remove("hidden");
-        }
-
-        // --- Toast notification ---
-        function showToast(msg, type) {
-            const colors = { warning: "from-amber-500 to-amber-600", error: "from-red-500 to-red-600", success: "from-emerald-500 to-emerald-600" };
-            const toast = document.createElement("div");
-            toast.className = `fixed top-6 right-6 z-[999] px-5 py-3 rounded-xl bg-gradient-to-r ${colors[type]||colors.warning} text-white text-sm font-medium shadow-2xl fade-in`;
-            toast.textContent = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = "0"; toast.style.transition = "opacity 0.4s"; setTimeout(() => toast.remove(), 400); }, 3000);
-        }
-    </script>
+        <!-- Profitability -->
+        <div id="sec-profitability" class="section">
+            <div class="section-title">Maliyet & Karlılık Analizi</div>
+            <p class="section-desc">Üretim vs ticaret ayrıştırma, kar ve rantabilite</p>
+            <div id="prof-content"></div>
+        </div>
+    </div>
+</div>
+<script src="/static/app.js"></script>
 </body>
 </html>
