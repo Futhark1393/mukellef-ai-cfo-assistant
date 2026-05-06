@@ -19,8 +19,7 @@ typing_extensions==4.15.0
 uvicorn==0.46.0
 
 # --- Production OCR dependencies ---
-# PyMuPDF==1.25.0        # PDF page rendering (fitz)
-Pillow==11.2.0         # Image preprocessing
+Pillow>=11.0.0         # Image preprocessing
 google-genai==0.3.0    # Gemini Vision API client (use compatible version)
 python-dotenv==1.0.1   # For .env loading
 
